@@ -185,25 +185,44 @@ export function StockOpnameTab() {
     }
     const w = window.open("", "_blank", "width=1024,height=768");
     if (!w) return;
+    const fmtRp = (n: number) =>
+      n === 0 ? "—" : `Rp ${Math.abs(n).toLocaleString("id-ID")}`;
+    let totalLoss = 0;
+    let totalSurplus = 0;
     const tableRows = rows
-      .map(
-        (r) => `
+      .map((r) => {
+        const price = state.master[r.barcode]?.price ?? 0;
+        const value = r.diff * price;
+        if (value < 0) totalLoss += value;
+        else if (value > 0) totalSurplus += value;
+        const valStr =
+          price === 0
+            ? "—"
+            : value < 0
+              ? `<strong style="color:#dc2626">(${fmtRp(value)})</strong>`
+              : value > 0
+                ? `<span style="color:#16a34a">+${fmtRp(value)}</span>`
+                : "—";
+        return `
         <tr>
           <td>${r.barcode}</td><td>${r.name}</td><td>${r.category}</td>
           <td style="text-align:right">${r.qty}</td>
           <td style="text-align:right">${r.sysStock}</td>
           <td style="text-align:right;color:${r.diff === 0 ? "#666" : r.diff > 0 ? "#16a34a" : "#dc2626"}">${r.diff > 0 ? "+" : ""}${r.diff}</td>
-        </tr>`,
-      )
+          <td style="text-align:right">${valStr}</td>
+        </tr>`;
+      })
       .join("");
     const now = new Date().toLocaleString("id-ID");
     w.document.write(`<!doctype html><html><head><title>Laporan SO ${loc}</title>
       <style>body{font-family:Inter,Arial,sans-serif;padding:24px;color:#111}
       h1{margin:0 0 4px;font-size:20px}.muted{color:#666;font-size:12px}
-      .summary{display:flex;gap:12px;margin:16px 0}
-      .box{flex:1;border:1px solid #ddd;padding:12px;border-radius:8px}
+      .summary{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}
+      .box{flex:1;min-width:140px;border:1px solid #ddd;padding:12px;border-radius:8px}
       .box .label{font-size:11px;color:#666;text-transform:uppercase}
-      .box .val{font-size:22px;font-weight:700;margin-top:4px}
+      .box .val{font-size:18px;font-weight:700;margin-top:4px}
+      .box.loss .val{color:#dc2626}
+      .box.surplus .val{color:#16a34a}
       table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
       th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}
       th{background:#1a1a2e;color:#fff}
@@ -218,8 +237,10 @@ export function StockOpnameTab() {
         <div class="box"><div class="label">Total Qty</div><div class="val">${stats.totalQty}</div></div>
         <div class="box"><div class="label">Item Selisih</div><div class="val">${stats.variance}</div></div>
         <div class="box"><div class="label">Unknown</div><div class="val">${stats.unknown}</div></div>
+        <div class="box loss"><div class="label">Total Nilai Loss</div><div class="val">${totalLoss === 0 ? "—" : `(${fmtRp(totalLoss)})`}</div></div>
+        <div class="box surplus"><div class="label">Total Nilai Surplus</div><div class="val">${totalSurplus === 0 ? "—" : `+${fmtRp(totalSurplus)}`}</div></div>
       </div>
-      <table><thead><tr><th>Barcode</th><th>Nama</th><th>Kategori</th><th>Qty Scan</th><th>Stok Sistem</th><th>Selisih</th></tr></thead><tbody>${tableRows}</tbody></table>
+      <table><thead><tr><th>Barcode</th><th>Nama</th><th>Kategori</th><th>Qty Scan</th><th>Stok Sistem</th><th>Selisih</th><th>Nilai Selisih (Rp)</th></tr></thead><tbody>${tableRows}</tbody></table>
       <div class="sign">
         <div><div class="line">Dibuat oleh</div></div>
         <div><div class="line">Diperiksa oleh</div></div>

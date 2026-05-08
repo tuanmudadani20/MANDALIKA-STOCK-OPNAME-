@@ -230,9 +230,64 @@ export function useStore() {
       setState((s) => {
         const master = { ...s.master };
         for (const p of products) master[p.barcode] = p;
+        saveMasterOverrides(master);
         return { ...s, master };
       });
       toast.success(`Master diimport: ${products.length} item`);
+    }, []),
+    updateMasterPrices: useCallback(
+      (changes: Record<string, number>) => {
+        setState((s) => {
+          const master = { ...s.master };
+          let count = 0;
+          for (const [bc, price] of Object.entries(changes)) {
+            if (master[bc] && master[bc].price !== price) {
+              master[bc] = { ...master[bc], price };
+              count++;
+            }
+          }
+          saveMasterOverrides(master);
+          if (count > 0) toast.success(`Harga berhasil disimpan (${count} item diperbarui)`);
+          return { ...s, master };
+        });
+      },
+      [],
+    ),
+    addMasterProduct: useCallback(
+      (p: MasterProduct): boolean => {
+        let ok = true;
+        setState((s) => {
+          if (s.master[p.barcode]) {
+            ok = false;
+            return s;
+          }
+          const master = { ...s.master, [p.barcode]: p };
+          saveMasterOverrides(master);
+          return { ...s, master };
+        });
+        if (ok) toast.success(`Produk berhasil ditambahkan: ${p.name}`);
+        return ok;
+      },
+      [],
+    ),
+    deleteMasterProduct: useCallback((barcode: string) => {
+      setState((s) => {
+        if (!s.master[barcode]) return s;
+        const master = { ...s.master };
+        delete master[barcode];
+        saveMasterOverrides(master);
+        return { ...s, master };
+      });
+      toast.success("Produk dihapus dari master");
+    }, []),
+    resetMasterToDefault: useCallback(() => {
+      setState((s) => {
+        const master: Record<string, MasterProduct> = {};
+        for (const p of DEFAULT_MASTER_PRODUCTS) master[p.barcode] = p;
+        saveMasterOverrides(master);
+        return { ...s, master };
+      });
+      toast.success("Master di-reset ke default");
     }, []),
     importStock: useCallback(
       (rows: { barcode: string; systemStock: number }[]) => {

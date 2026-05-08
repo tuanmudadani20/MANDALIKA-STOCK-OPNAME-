@@ -35,6 +35,7 @@ function splitLine(line: string): string[] {
 const MASTER_KEYS = {
   barcode: ["barcode"],
   name: ["nama", "name"],
+  size: ["ukuran", "size"],
   category: ["kategori", "category"],
   unit: ["satuan", "unit"],
   price: ["harga", "price"],

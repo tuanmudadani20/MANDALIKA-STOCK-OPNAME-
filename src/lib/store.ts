@@ -39,13 +39,71 @@ export interface AppState {
 }
 
 const STORAGE_KEY = "mandalika-stock-opname-v2";
+const MASTER_OVERRIDES_KEY = "mandalika-master-overrides";
+
+function loadMaster(): Record<string, MasterProduct> {
+  const defaults: Record<string, MasterProduct> = {};
+  for (const p of DEFAULT_MASTER_PRODUCTS) defaults[p.barcode] = p;
+  if (typeof window === "undefined") return defaults;
+  try {
+    const raw = window.localStorage.getItem(MASTER_OVERRIDES_KEY);
+    if (!raw) return defaults;
+    const data = JSON.parse(raw) as
+      | { overrides?: Record<string, MasterProduct>; deleted?: string[] }
+      | Record<string, MasterProduct>;
+    const isWrapped = data && typeof data === "object" && ("overrides" in data || "deleted" in data);
+    const overrides = (isWrapped ? (data as { overrides?: Record<string, MasterProduct> }).overrides : (data as Record<string, MasterProduct>)) || {};
+    const deleted = isWrapped ? ((data as { deleted?: string[] }).deleted || []) : [];
+    const merged: Record<string, MasterProduct> = { ...defaults };
+    for (const [bc, p] of Object.entries(overrides)) {
+      const def = defaults[bc];
+      merged[bc] = def ? { ...def, ...p } : (p as MasterProduct);
+    }
+    for (const bc of deleted) delete merged[bc];
+    return merged;
+  } catch {
+    return defaults;
+  }
+}
+
+function saveMasterOverrides(master: Record<string, MasterProduct>) {
+  if (typeof window === "undefined") return;
+  const defaults: Record<string, MasterProduct> = {};
+  for (const p of DEFAULT_MASTER_PRODUCTS) defaults[p.barcode] = p;
+  const overrides: Record<string, MasterProduct> = {};
+  for (const [bc, p] of Object.entries(master)) {
+    const def = defaults[bc];
+    if (!def) {
+      overrides[bc] = p;
+    } else if (
+      p.price !== def.price ||
+      p.name !== def.name ||
+      p.size !== def.size ||
+      p.category !== def.category ||
+      p.unit !== def.unit
+    ) {
+      overrides[bc] = p;
+    }
+  }
+  const present = new Set(Object.keys(master));
+  const deleted: string[] = [];
+  for (const bc of Object.keys(defaults)) {
+    if (!present.has(bc)) deleted.push(bc);
+  }
+  try {
+    window.localStorage.setItem(
+      MASTER_OVERRIDES_KEY,
+      JSON.stringify({ overrides, deleted }),
+    );
+  } catch {
+    toast.error("Penyimpanan penuh. Export data terlebih dahulu.");
+  }
+}
 
 function defaultState(): AppState {
-  const master: Record<string, MasterProduct> = {};
-  for (const p of DEFAULT_MASTER_PRODUCTS) master[p.barcode] = p;
   return {
     activeLocation: "",
-    master,
+    master: loadMaster(),
     locationStocks: {},
     scans: {},
     schedules: [],
@@ -68,7 +126,7 @@ function loadInitial(): AppState {
     return {
       ...base,
       ...parsed,
-      master: { ...base.master, ...(parsed.master || {}) },
+      master: base.master,
       schedulePlanner:
         parsed.schedulePlanner && parsed.schedulePlanner.length > 0
           ? parsed.schedulePlanner
@@ -82,7 +140,9 @@ function loadInitial(): AppState {
 function persist(state: AppState) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // strip master — persisted separately in MASTER_OVERRIDES_KEY
+    const { master: _master, ...rest } = state;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
   } catch {
     toast.error("Penyimpanan penuh. Export data terlebih dahulu.");
   }
@@ -170,9 +230,64 @@ export function useStore() {
       setState((s) => {
         const master = { ...s.master };
         for (const p of products) master[p.barcode] = p;
+        saveMasterOverrides(master);
         return { ...s, master };
       });
       toast.success(`Master diimport: ${products.length} item`);
+    }, []),
+    updateMasterPrices: useCallback(
+      (changes: Record<string, number>) => {
+        setState((s) => {
+          const master = { ...s.master };
+          let count = 0;
+          for (const [bc, price] of Object.entries(changes)) {
+            if (master[bc] && master[bc].price !== price) {
+              master[bc] = { ...master[bc], price };
+              count++;
+            }
+          }
+          saveMasterOverrides(master);
+          if (count > 0) toast.success(`Harga berhasil disimpan (${count} item diperbarui)`);
+          return { ...s, master };
+        });
+      },
+      [],
+    ),
+    addMasterProduct: useCallback(
+      (p: MasterProduct): boolean => {
+        let ok = true;
+        setState((s) => {
+          if (s.master[p.barcode]) {
+            ok = false;
+            return s;
+          }
+          const master = { ...s.master, [p.barcode]: p };
+          saveMasterOverrides(master);
+          return { ...s, master };
+        });
+        if (ok) toast.success(`Produk berhasil ditambahkan: ${p.name}`);
+        return ok;
+      },
+      [],
+    ),
+    deleteMasterProduct: useCallback((barcode: string) => {
+      setState((s) => {
+        if (!s.master[barcode]) return s;
+        const master = { ...s.master };
+        delete master[barcode];
+        saveMasterOverrides(master);
+        return { ...s, master };
+      });
+      toast.success("Produk dihapus dari master");
+    }, []),
+    resetMasterToDefault: useCallback(() => {
+      setState((s) => {
+        const master: Record<string, MasterProduct> = {};
+        for (const p of DEFAULT_MASTER_PRODUCTS) master[p.barcode] = p;
+        saveMasterOverrides(master);
+        return { ...s, master };
+      });
+      toast.success("Master di-reset ke default");
     }, []),
     importStock: useCallback(
       (rows: { barcode: string; systemStock: number }[]) => {

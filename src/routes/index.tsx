@@ -28,10 +28,14 @@ function Index() {
         <Tabs defaultValue="so" className="w-full">
           <TabsList>
             <TabsTrigger value="so">Stock Opname</TabsTrigger>
+            <TabsTrigger value="master">Master Data</TabsTrigger>
             <TabsTrigger value="jadwal">Jadwal SO</TabsTrigger>
           </TabsList>
           <TabsContent value="so" className="mt-6">
             <StockOpnameTab />
+          </TabsContent>
+          <TabsContent value="master" className="mt-6">
+            <MasterDataTab />
           </TabsContent>
           <TabsContent value="jadwal" className="mt-6">
             <JadwalSOTab />

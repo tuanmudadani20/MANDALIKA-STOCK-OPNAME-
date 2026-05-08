@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StockOpnameTab } from "@/components/StockOpnameTab";
+import { MasterDataTab } from "@/components/MasterDataTab";
 import { JadwalSOTab } from "@/components/JadwalSOTab";
 import { Toaster } from "@/components/ui/sonner";
 

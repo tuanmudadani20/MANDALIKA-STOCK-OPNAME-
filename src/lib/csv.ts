@@ -52,10 +52,10 @@ export function parseMasterCsv(text: string): MasterProduct[] {
     .map((r) => ({
       barcode: pick(r, MASTER_KEYS.barcode).trim().toUpperCase(),
       name: pick(r, MASTER_KEYS.name),
+      size: pick(r, MASTER_KEYS.size),
       category: pick(r, MASTER_KEYS.category),
       unit: pick(r, MASTER_KEYS.unit) || "PCS",
       price: Number(pick(r, MASTER_KEYS.price).replace(/[^\d.-]/g, "")) || 0,
-      source: "import",
     }))
     .filter((p) => p.barcode);
 }

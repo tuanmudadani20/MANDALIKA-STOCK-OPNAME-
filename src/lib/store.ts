@@ -39,13 +39,60 @@ export interface AppState {
 }
 
 const STORAGE_KEY = "mandalika-stock-opname-v2";
+const MASTER_OVERRIDES_KEY = "mandalika-master-overrides";
+
+function loadMaster(): Record<string, MasterProduct> {
+  const defaults: Record<string, MasterProduct> = {};
+  for (const p of DEFAULT_MASTER_PRODUCTS) defaults[p.barcode] = p;
+  if (typeof window === "undefined") return defaults;
+  try {
+    const raw = window.localStorage.getItem(MASTER_OVERRIDES_KEY);
+    if (!raw) return defaults;
+    const overrides = JSON.parse(raw) as Record<string, MasterProduct>;
+    const merged = { ...defaults };
+    for (const [bc, p] of Object.entries(overrides)) {
+      const def = defaults[bc];
+      merged[bc] = def ? { ...def, ...p } : (p as MasterProduct);
+    }
+    return merged;
+  } catch {
+    return defaults;
+  }
+}
+
+function saveMasterOverrides(master: Record<string, MasterProduct>) {
+  if (typeof window === "undefined") return;
+  const defaults: Record<string, MasterProduct> = {};
+  for (const p of DEFAULT_MASTER_PRODUCTS) defaults[p.barcode] = p;
+  const overrides: Record<string, MasterProduct> = {};
+  for (const [bc, p] of Object.entries(master)) {
+    const def = defaults[bc];
+    if (!def) {
+      overrides[bc] = p;
+    } else if (p.price !== def.price || p.name !== def.name || p.size !== def.size || p.category !== def.category || p.unit !== def.unit) {
+      overrides[bc] = p;
+    }
+  }
+  // Mark deleted defaults as null marker via DELETED list
+  const presentBarcodes = new Set(Object.keys(master));
+  const deleted: string[] = [];
+  for (const bc of Object.keys(defaults)) {
+    if (!presentBarcodes.has(bc)) deleted.push(bc);
+  }
+  try {
+    window.localStorage.setItem(
+      MASTER_OVERRIDES_KEY,
+      JSON.stringify({ overrides, deleted }),
+    );
+  } catch {
+    toast.error("Penyimpanan penuh. Export data terlebih dahulu.");
+  }
+}
 
 function defaultState(): AppState {
-  const master: Record<string, MasterProduct> = {};
-  for (const p of DEFAULT_MASTER_PRODUCTS) master[p.barcode] = p;
   return {
     activeLocation: "",
-    master,
+    master: loadMaster(),
     locationStocks: {},
     scans: {},
     schedules: [],
@@ -65,10 +112,24 @@ function loadInitial(): AppState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return base;
     const parsed = JSON.parse(raw) as Partial<AppState>;
+    // Apply overrides loaded separately, then handle deleted markers
+    let masterFinal = base.master;
+    try {
+      const rawO = window.localStorage.getItem(MASTER_OVERRIDES_KEY);
+      if (rawO) {
+        const o = JSON.parse(rawO) as { overrides?: Record<string, MasterProduct>; deleted?: string[] };
+        if (o.deleted) {
+          masterFinal = { ...masterFinal };
+          for (const bc of o.deleted) delete masterFinal[bc];
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     return {
       ...base,
       ...parsed,
-      master: { ...base.master, ...(parsed.master || {}) },
+      master: masterFinal,
       schedulePlanner:
         parsed.schedulePlanner && parsed.schedulePlanner.length > 0
           ? parsed.schedulePlanner

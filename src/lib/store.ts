@@ -48,12 +48,18 @@ function loadMaster(): Record<string, MasterProduct> {
   try {
     const raw = window.localStorage.getItem(MASTER_OVERRIDES_KEY);
     if (!raw) return defaults;
-    const overrides = JSON.parse(raw) as Record<string, MasterProduct>;
-    const merged = { ...defaults };
+    const data = JSON.parse(raw) as
+      | { overrides?: Record<string, MasterProduct>; deleted?: string[] }
+      | Record<string, MasterProduct>;
+    const isWrapped = data && typeof data === "object" && ("overrides" in data || "deleted" in data);
+    const overrides = (isWrapped ? (data as { overrides?: Record<string, MasterProduct> }).overrides : (data as Record<string, MasterProduct>)) || {};
+    const deleted = isWrapped ? ((data as { deleted?: string[] }).deleted || []) : [];
+    const merged: Record<string, MasterProduct> = { ...defaults };
     for (const [bc, p] of Object.entries(overrides)) {
       const def = defaults[bc];
       merged[bc] = def ? { ...def, ...p } : (p as MasterProduct);
     }
+    for (const bc of deleted) delete merged[bc];
     return merged;
   } catch {
     return defaults;
@@ -69,15 +75,20 @@ function saveMasterOverrides(master: Record<string, MasterProduct>) {
     const def = defaults[bc];
     if (!def) {
       overrides[bc] = p;
-    } else if (p.price !== def.price || p.name !== def.name || p.size !== def.size || p.category !== def.category || p.unit !== def.unit) {
+    } else if (
+      p.price !== def.price ||
+      p.name !== def.name ||
+      p.size !== def.size ||
+      p.category !== def.category ||
+      p.unit !== def.unit
+    ) {
       overrides[bc] = p;
     }
   }
-  // Mark deleted defaults as null marker via DELETED list
-  const presentBarcodes = new Set(Object.keys(master));
+  const present = new Set(Object.keys(master));
   const deleted: string[] = [];
   for (const bc of Object.keys(defaults)) {
-    if (!presentBarcodes.has(bc)) deleted.push(bc);
+    if (!present.has(bc)) deleted.push(bc);
   }
   try {
     window.localStorage.setItem(
@@ -112,24 +123,10 @@ function loadInitial(): AppState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return base;
     const parsed = JSON.parse(raw) as Partial<AppState>;
-    // Apply overrides loaded separately, then handle deleted markers
-    let masterFinal = base.master;
-    try {
-      const rawO = window.localStorage.getItem(MASTER_OVERRIDES_KEY);
-      if (rawO) {
-        const o = JSON.parse(rawO) as { overrides?: Record<string, MasterProduct>; deleted?: string[] };
-        if (o.deleted) {
-          masterFinal = { ...masterFinal };
-          for (const bc of o.deleted) delete masterFinal[bc];
-        }
-      }
-    } catch {
-      /* ignore */
-    }
     return {
       ...base,
       ...parsed,
-      master: masterFinal,
+      master: base.master,
       schedulePlanner:
         parsed.schedulePlanner && parsed.schedulePlanner.length > 0
           ? parsed.schedulePlanner
@@ -143,7 +140,9 @@ function loadInitial(): AppState {
 function persist(state: AppState) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // strip master — persisted separately in MASTER_OVERRIDES_KEY
+    const { master: _master, ...rest } = state;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
   } catch {
     toast.error("Penyimpanan penuh. Export data terlebih dahulu.");
   }

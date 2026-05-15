@@ -214,7 +214,11 @@ export function useStore() {
         } else {
           toast.error(`Barcode tidak dikenal: ${barcode}`, { duration: 2000 });
         }
-        return { ...s, scans: { ...s.scans, [s.activeLocation]: bucket } };
+        const sessionStartedAt = { ...s.sessionStartedAt };
+        if (!sessionStartedAt[s.activeLocation]) {
+          sessionStartedAt[s.activeLocation] = new Date().toISOString();
+        }
+        return { ...s, scans: { ...s.scans, [s.activeLocation]: bucket }, sessionStartedAt };
       });
     }, []),
     updateScanQty: useCallback((barcode: string, qty: number) => {

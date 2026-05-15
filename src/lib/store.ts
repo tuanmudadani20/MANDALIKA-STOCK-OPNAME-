@@ -28,6 +28,20 @@ export interface PlannerStore {
   tgl: number;
   locationKey: string;
 }
+export interface HistoryEntry {
+  id: string;
+  location: string;
+  startedAt: string;
+  approvedAt: string;
+  closedAt: string;
+  totalItem: number;
+  totalQty: number;
+  variance: number;
+  unknown: number;
+  approvedBy: string;
+  status: "approved" | "closed";
+  rows: { barcode: string; name: string; category: string; qty: number; sysStock: number; diff: number; price: number }[];
+}
 export interface AppState {
   activeLocation: string;
   master: Record<string, MasterProduct>;
@@ -36,6 +50,8 @@ export interface AppState {
   schedules: Schedule[];
   documents: Record<string, DocumentState>;
   schedulePlanner: PlannerStore[];
+  sessionStartedAt: Record<string, string>;
+  history: HistoryEntry[];
 }
 
 const STORAGE_KEY = "mandalika-stock-opname-v2";

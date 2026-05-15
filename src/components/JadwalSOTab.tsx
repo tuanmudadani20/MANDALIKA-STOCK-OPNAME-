@@ -252,7 +252,7 @@ function KalenderView() {
   }, [state.schedules, state.schedulePlanner, state.history, year, month, daysInMonth]); // eslint-disable-line
 
   // wilayah filter
-  const filterByWil = (entries: { wil: string }[] | undefined) =>
+  const filterByWil = <T extends { wil: string }>(entries: T[] | undefined): T[] =>
     !entries ? [] : (wilFilter === "__all__" ? entries : entries.filter((e) => e.wil === wilFilter));
 
   const cells: (number | null)[] = [];

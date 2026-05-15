@@ -1,6 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { DEFAULT_MASTER_PRODUCTS, type MasterProduct } from "@/data/masterData";
+import {
+  parseMasterCsv,
+  validateMasterCsv,
+  previewMasterCsv,
+  exportMasterCsv,
+  downloadFile,
+} from "@/lib/csv";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +46,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Save, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Save, Trash2, RotateCcw, Upload, Download, Loader2 } from "lucide-react";
 
 const fmtRp = (n: number) => (n > 0 ? n.toLocaleString("id-ID") : "0");
 

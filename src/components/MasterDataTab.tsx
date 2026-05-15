@@ -115,6 +115,39 @@ export function MasterDataTab() {
     setDirty({});
   };
 
+  const handleFile = async (f: File) => {
+    setImporting(true);
+    try {
+      const text = await f.text();
+      const v = validateMasterCsv(text);
+      if (!v.ok) { toast.error(v.error); return; }
+      const { headers, total, preview } = previewMasterCsv(text);
+      if (total === 0) { toast.error("CSV kosong"); return; }
+      setImportPreview({ text, headers, total, rows: preview });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const confirmImport = () => {
+    if (!importPreview) return;
+    setImporting(true);
+    try {
+      const products = parseMasterCsv(importPreview.text);
+      if (!products.length) { toast.error("Tidak ada item valid"); return; }
+      importMaster(products);
+      setImportPreview(null);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const exportCsv = () => {
+    const csv = exportMasterCsv(Object.values(state.master));
+    const dt = new Date().toISOString().slice(0, 10);
+    downloadFile(`master-mandalika-${dt}.csv`, csv);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4">

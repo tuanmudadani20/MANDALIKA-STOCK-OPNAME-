@@ -331,22 +331,66 @@ export function useStore() {
       },
       [],
     ),
-    approveDocument: useCallback(() => {
+    approveDocument: useCallback((approvedBy = "—") => {
       setState((s) => {
         if (!s.activeLocation) return s;
+        const loc = s.activeLocation;
+        const approvedAt = new Date().toISOString();
+        const startedAt = s.sessionStartedAt[loc] || approvedAt;
+        const scans = s.scans[loc] || {};
+        const stocks = s.locationStocks[loc] || {};
+        const all = new Set<string>([...Object.keys(scans), ...Object.keys(stocks)]);
+        const rows = Array.from(all).map((bc) => {
+          const product = s.master[bc];
+          const qty = scans[bc]?.qty ?? 0;
+          const sysStock = stocks[bc]?.systemStock ?? 0;
+          return {
+            barcode: bc,
+            name: product?.name || "(Unknown)",
+            category: product?.category || "-",
+            qty,
+            sysStock,
+            diff: qty - sysStock,
+            price: product?.price ?? 0,
+          };
+        });
+        const totalItem = rows.filter((r) => r.qty > 0).length;
+        const totalQty = rows.reduce((a, r) => a + r.qty, 0);
+        const variance = rows.filter((r) => r.diff !== 0 && (r.qty > 0 || r.sysStock > 0)).length;
+        const unknown = rows.filter((r) => !s.master[r.barcode] && r.qty > 0).length;
+        const entry: HistoryEntry = {
+          id: crypto.randomUUID(),
+          location: loc,
+          startedAt,
+          approvedAt,
+          closedAt: "",
+          totalItem,
+          totalQty,
+          variance,
+          unknown,
+          approvedBy,
+          status: "approved",
+          rows,
+        };
+        const history = [entry, ...s.history].slice(0, 100);
         return {
           ...s,
           documents: {
             ...s.documents,
-            [s.activeLocation]: {
+            [loc]: {
               status: "approved",
-              approvedAt: new Date().toISOString(),
-              closedAt: s.documents[s.activeLocation]?.closedAt || "",
+              approvedAt,
+              closedAt: s.documents[loc]?.closedAt || "",
             },
           },
+          history,
         };
       });
       toast.success("Dokumen di-approve");
+    }, []),
+    deleteHistory: useCallback((id: string) => {
+      setState((s) => ({ ...s, history: s.history.filter((h) => h.id !== id) }));
+      toast.success("Riwayat dihapus");
     }, []),
     closeDocument: useCallback(() => {
       setState((s) => {

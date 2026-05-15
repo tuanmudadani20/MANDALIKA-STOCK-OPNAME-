@@ -244,7 +244,9 @@ export function useStore() {
         delete scans[s.activeLocation];
         const documents = { ...s.documents };
         delete documents[s.activeLocation];
-        return { ...s, scans, documents };
+        const sessionStartedAt = { ...s.sessionStartedAt };
+        delete sessionStartedAt[s.activeLocation];
+        return { ...s, scans, documents, sessionStartedAt };
       });
       toast.success("Data scan direset");
     }, []),

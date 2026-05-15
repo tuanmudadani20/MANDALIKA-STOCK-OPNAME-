@@ -125,6 +125,8 @@ function defaultState(): AppState {
     schedules: [],
     documents: {},
     schedulePlanner: SCHEDULE_STORES.map((s) => ({ ...s })),
+    sessionStartedAt: {},
+    history: [],
   };
 }
 

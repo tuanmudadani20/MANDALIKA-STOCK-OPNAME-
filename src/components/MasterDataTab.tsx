@@ -1,6 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { DEFAULT_MASTER_PRODUCTS, type MasterProduct } from "@/data/masterData";
+import {
+  parseMasterCsv,
+  validateMasterCsv,
+  previewMasterCsv,
+  exportMasterCsv,
+  downloadFile,
+} from "@/lib/csv";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,17 +46,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Save, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Save, Trash2, RotateCcw, Upload, Download, Loader2 } from "lucide-react";
 
 const fmtRp = (n: number) => (n > 0 ? n.toLocaleString("id-ID") : "0");
 
 export function MasterDataTab() {
-  const { state, updateMasterPrices, addMasterProduct, deleteMasterProduct, resetMasterToDefault } =
+  const { state, updateMasterPrices, addMasterProduct, deleteMasterProduct, resetMasterToDefault, importMaster } =
     useStore();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<string>("__all__");
   const [dirty, setDirty] = useState<Record<string, number>>({});
   const [addOpen, setAddOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<{
+    text: string;
+    headers: string[];
+    total: number;
+    rows: { barcode: string; name: string; size: string; category: string; unit: string; price: string }[];
+  } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const products = useMemo(() => Object.values(state.master), [state.master]);
   const categories = useMemo(
@@ -100,6 +115,39 @@ export function MasterDataTab() {
     setDirty({});
   };
 
+  const handleFile = async (f: File) => {
+    setImporting(true);
+    try {
+      const text = await f.text();
+      const v = validateMasterCsv(text);
+      if (!v.ok) { toast.error(v.error); return; }
+      const { headers, total, preview } = previewMasterCsv(text);
+      if (total === 0) { toast.error("CSV kosong"); return; }
+      setImportPreview({ text, headers, total, rows: preview });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const confirmImport = () => {
+    if (!importPreview) return;
+    setImporting(true);
+    try {
+      const products = parseMasterCsv(importPreview.text);
+      if (!products.length) { toast.error("Tidak ada item valid"); return; }
+      importMaster(products);
+      setImportPreview(null);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const exportCsv = () => {
+    const csv = exportMasterCsv(Object.values(state.master));
+    const dt = new Date().toISOString().slice(0, 10);
+    downloadFile(`master-mandalika-${dt}.csv`, csv);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4">
@@ -123,7 +171,16 @@ export function MasterDataTab() {
           </SelectContent>
         </Select>
         <Badge variant="outline">{filtered.length} item</Badge>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
+          <input ref={fileRef} type="file" accept=".csv" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+          <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={importing}>
+            {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+            Import CSV
+          </Button>
+          <Button variant="outline" onClick={exportCsv}>
+            <Download className="mr-2 h-4 w-4" /> Export Master CSV
+          </Button>
           <Button onClick={() => setAddOpen(true)} variant="outline">
             <Plus className="mr-2 h-4 w-4" /> Tambah Produk Baru
           </Button>
@@ -134,6 +191,63 @@ export function MasterDataTab() {
           )}
         </div>
       </div>
+
+      {/* Import preview dialog */}
+      <Dialog open={!!importPreview} onOpenChange={(v) => !v && setImportPreview(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Preview Import Master CSV</DialogTitle>
+            <DialogDescription>
+              {importPreview?.total} baris terdeteksi. Periksa pemetaan kolom sebelum konfirmasi.
+            </DialogDescription>
+          </DialogHeader>
+          {importPreview && (
+            <div className="space-y-3">
+              <div className="rounded-md bg-muted p-3 text-xs">
+                <div className="font-semibold">Kolom terdeteksi:</div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {importPreview.headers.map((h) => (
+                    <Badge key={h} variant="outline" className="font-mono text-[10px]">{h}</Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Barcode</TableHead><TableHead>Nama</TableHead>
+                      <TableHead>Ukuran</TableHead><TableHead>Kategori</TableHead>
+                      <TableHead>Unit</TableHead><TableHead>Harga</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importPreview.rows.map((r, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-mono text-xs">{r.barcode}</TableCell>
+                        <TableCell>{r.name}</TableCell>
+                        <TableCell>{r.size}</TableCell>
+                        <TableCell>{r.category}</TableCell>
+                        <TableCell>{r.unit}</TableCell>
+                        <TableCell>{r.price}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Menampilkan {importPreview.rows.length} dari {importPreview.total} baris.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportPreview(null)} disabled={importing}>Batal</Button>
+            <Button onClick={confirmImport} disabled={importing}>
+              {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Konfirmasi Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="space-y-4">
         {Object.keys(grouped).length === 0 && (

@@ -28,6 +28,20 @@ export interface PlannerStore {
   tgl: number;
   locationKey: string;
 }
+export interface HistoryEntry {
+  id: string;
+  location: string;
+  startedAt: string;
+  approvedAt: string;
+  closedAt: string;
+  totalItem: number;
+  totalQty: number;
+  variance: number;
+  unknown: number;
+  approvedBy: string;
+  status: "approved" | "closed";
+  rows: { barcode: string; name: string; category: string; qty: number; sysStock: number; diff: number; price: number }[];
+}
 export interface AppState {
   activeLocation: string;
   master: Record<string, MasterProduct>;
@@ -36,6 +50,8 @@ export interface AppState {
   schedules: Schedule[];
   documents: Record<string, DocumentState>;
   schedulePlanner: PlannerStore[];
+  sessionStartedAt: Record<string, string>;
+  history: HistoryEntry[];
 }
 
 const STORAGE_KEY = "mandalika-stock-opname-v2";
@@ -109,6 +125,8 @@ function defaultState(): AppState {
     schedules: [],
     documents: {},
     schedulePlanner: SCHEDULE_STORES.map((s) => ({ ...s })),
+    sessionStartedAt: {},
+    history: [],
   };
 }
 
@@ -196,7 +214,11 @@ export function useStore() {
         } else {
           toast.error(`Barcode tidak dikenal: ${barcode}`, { duration: 2000 });
         }
-        return { ...s, scans: { ...s.scans, [s.activeLocation]: bucket } };
+        const sessionStartedAt = { ...s.sessionStartedAt };
+        if (!sessionStartedAt[s.activeLocation]) {
+          sessionStartedAt[s.activeLocation] = new Date().toISOString();
+        }
+        return { ...s, scans: { ...s.scans, [s.activeLocation]: bucket }, sessionStartedAt };
       });
     }, []),
     updateScanQty: useCallback((barcode: string, qty: number) => {
@@ -222,7 +244,9 @@ export function useStore() {
         delete scans[s.activeLocation];
         const documents = { ...s.documents };
         delete documents[s.activeLocation];
-        return { ...s, scans, documents };
+        const sessionStartedAt = { ...s.sessionStartedAt };
+        delete sessionStartedAt[s.activeLocation];
+        return { ...s, scans, documents, sessionStartedAt };
       });
       toast.success("Data scan direset");
     }, []),
@@ -307,22 +331,66 @@ export function useStore() {
       },
       [],
     ),
-    approveDocument: useCallback(() => {
+    approveDocument: useCallback((approvedBy = "—") => {
       setState((s) => {
         if (!s.activeLocation) return s;
+        const loc = s.activeLocation;
+        const approvedAt = new Date().toISOString();
+        const startedAt = s.sessionStartedAt[loc] || approvedAt;
+        const scans = s.scans[loc] || {};
+        const stocks = s.locationStocks[loc] || {};
+        const all = new Set<string>([...Object.keys(scans), ...Object.keys(stocks)]);
+        const rows = Array.from(all).map((bc) => {
+          const product = s.master[bc];
+          const qty = scans[bc]?.qty ?? 0;
+          const sysStock = stocks[bc]?.systemStock ?? 0;
+          return {
+            barcode: bc,
+            name: product?.name || "(Unknown)",
+            category: product?.category || "-",
+            qty,
+            sysStock,
+            diff: qty - sysStock,
+            price: product?.price ?? 0,
+          };
+        });
+        const totalItem = rows.filter((r) => r.qty > 0).length;
+        const totalQty = rows.reduce((a, r) => a + r.qty, 0);
+        const variance = rows.filter((r) => r.diff !== 0 && (r.qty > 0 || r.sysStock > 0)).length;
+        const unknown = rows.filter((r) => !s.master[r.barcode] && r.qty > 0).length;
+        const entry: HistoryEntry = {
+          id: crypto.randomUUID(),
+          location: loc,
+          startedAt,
+          approvedAt,
+          closedAt: "",
+          totalItem,
+          totalQty,
+          variance,
+          unknown,
+          approvedBy,
+          status: "approved",
+          rows,
+        };
+        const history = [entry, ...s.history].slice(0, 100);
         return {
           ...s,
           documents: {
             ...s.documents,
-            [s.activeLocation]: {
+            [loc]: {
               status: "approved",
-              approvedAt: new Date().toISOString(),
-              closedAt: s.documents[s.activeLocation]?.closedAt || "",
+              approvedAt,
+              closedAt: s.documents[loc]?.closedAt || "",
             },
           },
+          history,
         };
       });
       toast.success("Dokumen di-approve");
+    }, []),
+    deleteHistory: useCallback((id: string) => {
+      setState((s) => ({ ...s, history: s.history.filter((h) => h.id !== id) }));
+      toast.success("Riwayat dihapus");
     }, []),
     closeDocument: useCallback(() => {
       setState((s) => {

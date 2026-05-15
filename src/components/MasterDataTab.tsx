@@ -51,12 +51,20 @@ import { Plus, Save, Trash2, RotateCcw, Upload, Download, Loader2 } from "lucide
 const fmtRp = (n: number) => (n > 0 ? n.toLocaleString("id-ID") : "0");
 
 export function MasterDataTab() {
-  const { state, updateMasterPrices, addMasterProduct, deleteMasterProduct, resetMasterToDefault } =
+  const { state, updateMasterPrices, addMasterProduct, deleteMasterProduct, resetMasterToDefault, importMaster } =
     useStore();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<string>("__all__");
   const [dirty, setDirty] = useState<Record<string, number>>({});
   const [addOpen, setAddOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<{
+    text: string;
+    headers: string[];
+    total: number;
+    rows: { barcode: string; name: string; size: string; category: string; unit: string; price: string }[];
+  } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const products = useMemo(() => Object.values(state.master), [state.master]);
   const categories = useMemo(

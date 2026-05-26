@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Trash2, Plus, ChevronLeft, ChevronRight, Save, Printer, FileText, FileSpreadsheet } from "lucide-react";
+import { Trash2, Plus, ChevronLeft, ChevronRight, Save, Printer, FileSpreadsheet } from "lucide-react";
 import { downloadFile } from "@/lib/csv";
 
 const MONTHS_ID = [

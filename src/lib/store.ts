@@ -184,6 +184,7 @@ function defaultState(): AppState {
     schedulePlanner: SCHEDULE_STORES.map((s) => ({ ...s })),
     sessionStartedAt: {},
     history: [],
+    stores: loadStores(),
   };
 }
 

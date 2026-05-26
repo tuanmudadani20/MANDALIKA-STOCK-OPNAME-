@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { LOCATIONS, WIL_COLORS } from "@/data/locationData";
+import { WIL_COLORS } from "@/data/locationData";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

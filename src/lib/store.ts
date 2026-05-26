@@ -520,6 +520,46 @@ export function useStore() {
       });
       toast.success("Disimpan ke jadwal");
     }, []),
+    addStore: useCallback((code: string, name: string): boolean => {
+      const cleanName = name.trim();
+      const cleanCode = code.trim();
+      if (!cleanName || !cleanCode) {
+        toast.warning("Nama & kode toko wajib diisi");
+        return false;
+      }
+      let ok = true;
+      setState((s) => {
+        if (s.stores.some((x) => x.code.toLowerCase() === cleanCode.toLowerCase())) {
+          ok = false;
+          return s;
+        }
+        const stores = [
+          ...s.stores,
+          { id: crypto.randomUUID(), code: cleanCode, name: cleanName, createdAt: new Date().toISOString() },
+        ];
+        saveStores(stores);
+        return { ...s, stores };
+      });
+      if (ok) toast.success(`Toko ${cleanName} ditambahkan`);
+      else toast.error(`Kode ${cleanCode} sudah ada`);
+      return ok;
+    }, []),
+    updateStore: useCallback((id: string, patch: Partial<Pick<Store, "name" | "code">>) => {
+      setState((s) => {
+        const stores = s.stores.map((x) => (x.id === id ? { ...x, ...patch } : x));
+        saveStores(stores);
+        return { ...s, stores };
+      });
+      toast.success("Toko diperbarui");
+    }, []),
+    deleteStore: useCallback((id: string) => {
+      setState((s) => {
+        const stores = s.stores.filter((x) => x.id !== id);
+        saveStores(stores);
+        return { ...s, stores };
+      });
+      toast.success("Toko dihapus");
+    }, []),
   };
 
   return { state, ...actions };

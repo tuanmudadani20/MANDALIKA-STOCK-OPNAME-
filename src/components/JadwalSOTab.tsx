@@ -322,24 +322,50 @@ function KalenderView() {
     );
   };
 
+  const printNow = () => window.print();
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3">
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #calendar-print-area, #calendar-print-area * { visibility: visible; }
+          #calendar-print-area {
+            position: absolute; left: 0; top: 0; width: 100%;
+            padding: 12mm;
+          }
+          .calendar-nav-btn, .calendar-no-print { display: none !important; }
+          #calendar-print-area .print-only { display: block !important; }
+          @page { size: A4 landscape; margin: 10mm; }
+        }
+        .print-only { display: none; }
+      `}</style>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 calendar-no-print">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navMonth(-1)}>
+          <Button variant="ghost" size="sm" onClick={() => navMonth(-1)} className="calendar-nav-btn">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h3 className="text-lg font-bold">{MONTHS_ID[month]} {year}</h3>
-          <Button variant="ghost" size="sm" onClick={() => navMonth(1)}>
+          <Button variant="ghost" size="sm" onClick={() => navMonth(1)} className="calendar-nav-btn">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="default" size="sm" onClick={printJadwal} className="bg-[#1a1a2e] hover:bg-[#1a1a2e]/90">
-            <Printer className="mr-2 h-4 w-4" /> Print Jadwal
-          </Button>
-          <Button variant="outline" size="sm" onClick={printJadwal}>
-            <FileText className="mr-2 h-4 w-4" /> Export PDF
+          <div className="inline-flex rounded-md border border-border overflow-hidden">
+            <Button variant={viewMode === "calendar" ? "default" : "ghost"} size="sm"
+              className={viewMode === "calendar" ? "bg-[#1a1a2e] hover:bg-[#1a1a2e]/90 rounded-none" : "rounded-none"}
+              onClick={() => setViewMode("calendar")}>
+              Tampilan Kalender
+            </Button>
+            <Button variant={viewMode === "list" ? "default" : "ghost"} size="sm"
+              className={viewMode === "list" ? "bg-[#1a1a2e] hover:bg-[#1a1a2e]/90 rounded-none" : "rounded-none"}
+              onClick={() => setViewMode("list")}>
+              Tampilan List
+            </Button>
+          </div>
+          <Button variant="default" size="sm" onClick={printNow} className="bg-[#1a1a2e] hover:bg-[#1a1a2e]/90">
+            <Printer className="mr-2 h-4 w-4" /> Print Kalender
           </Button>
           <Button variant="outline" size="sm" onClick={exportExcel}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Excel
@@ -348,7 +374,7 @@ function KalenderView() {
       </div>
 
       {/* Wilayah filter chips */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 calendar-no-print">
         <FilterChip active={wilFilter === "__all__"} onClick={() => setWilFilter("__all__")}>
           Semua
         </FilterChip>
@@ -359,52 +385,121 @@ function KalenderView() {
         ))}
       </div>
 
-      {/* Calendar */}
-      <div className="grid grid-cols-7 gap-1 text-xs">
-        {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((d) => (
-          <div key={d} className="p-2 text-center font-semibold text-muted-foreground">{d}</div>
-        ))}
-        {cells.map((d, i) => (
-          <div key={i} className={`min-h-24 rounded-md border border-border p-1 ${d === null ? "bg-muted/30" : "bg-card"}`}>
-            {d && (
-              <>
-                <div className="text-right text-xs font-semibold text-muted-foreground">{d}</div>
-                <div className="mt-1 space-y-0.5">
-                  {filterByWil(monthSchedules[d]).map((s, idx) => (
-                    <div key={idx}
-                      className={`truncate rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${s.done ? "opacity-50 line-through" : ""}`}
-                      style={{ background: s.done ? "#6b7280" : WIL_COLORS[s.wil] || "#6b7280" }}
-                      title={`${s.store} — ${s.done ? "Selesai" : s.wil}`}>
-                      {s.redirected && "→ "}{s.store}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Legend */}
-      <div className="rounded-lg border border-border bg-card p-3">
-        <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Legenda Warna</div>
-        <div className="flex flex-wrap gap-3 text-xs">
-          {allWil.map((w2) => (
-            <div key={w2} className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded" style={{ background: WIL_COLORS[w2] }} />
-              <span>{w2}</span>
+      {viewMode === "calendar" ? (
+        <div id="calendar-print-area">
+          <div className="print-only" style={{ marginBottom: 12, borderBottom: "2px solid #1a1a2e", paddingBottom: 8 }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#1a1a2e" }}>
+              MANDALIKA <span style={{ color: "#c9a84c", fontStyle: "italic", fontWeight: 600 }}>Perfume</span>
             </div>
-          ))}
-          <div className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded bg-[#6b7280] opacity-50" />
-            <span className="line-through opacity-70">Selesai</span>
+            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>
+              Jadwal Stock Opname — {MONTHS_ID[month]} {year}
+            </div>
+            <div style={{ fontSize: 10, color: "#666" }}>
+              Filter wilayah: {wilFilter === "__all__" ? "Semua" : wilFilter} • Dicetak: {new Date().toLocaleString("id-ID")}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">→</span>
-            <span>Digeser dari Minggu</span>
+
+          <div className="grid grid-cols-7 gap-1 text-xs">
+            {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((d) => (
+              <div key={d} className="p-2 text-center font-semibold text-muted-foreground">{d}</div>
+            ))}
+            {cells.map((d, i) => {
+              const isToday = d !== null
+                && today.getFullYear() === year
+                && today.getMonth() === month
+                && today.getDate() === d;
+              const dayEntries = d ? filterByWil(monthSchedules[d]) : [];
+              return (
+                <div key={i}
+                  className={`min-h-[80px] sm:min-h-[80px] rounded-md border border-border p-1 ${
+                    d === null ? "bg-muted/30" : isToday ? "bg-[#fff7d6]" : dayEntries.length ? "bg-card" : "bg-card"
+                  }`}>
+                  {d && (
+                    <>
+                      <div className="text-left text-xs font-bold text-foreground">{d}</div>
+                      <div className="mt-1 space-y-0.5">
+                        {dayEntries.slice(0, 3).map((s, idx) => (
+                          <div key={idx}
+                            className={`truncate rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${s.done ? "opacity-50 line-through" : ""}`}
+                            style={{ background: s.done ? "#6b7280" : WIL_COLORS[s.wil] || "#6b7280" }}
+                            title={`${s.store} — ${s.done ? "Selesai" : s.wil}`}>
+                            {s.redirected && "→ "}{s.store}
+                          </div>
+                        ))}
+                        {dayEntries.length > 3 && (
+                          <div className="px-1.5 text-[10px] text-muted-foreground">
+                            +{dayEntries.length - 3} lagi
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 rounded-lg border border-border bg-card p-3">
+            <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Legenda Warna</div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              {allWil.map((w2) => (
+                <div key={w2} className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded" style={{ background: WIL_COLORS[w2] }} />
+                  <span>{w2}</span>
+                </div>
+              ))}
+              <div className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded bg-[#6b7280] opacity-50" />
+                <span className="line-through opacity-70">Selesai</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">→</span>
+                <span>Digeser dari Minggu</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tanggal</TableHead>
+                <TableHead>Toko</TableHead>
+                <TableHead>Wilayah</TableHead>
+                <TableHead>Lokasi</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {flatSchedule.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    Tidak ada jadwal pada periode ini
+                  </TableCell>
+                </TableRow>
+              ) : flatSchedule.map((r, i) => (
+                <TableRow key={i}>
+                  <TableCell>{r.tgl}</TableCell>
+                  <TableCell className="font-medium">{r.toko}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ background: WIL_COLORS[r.wilayah] || "#6b7280" }} />
+                      {r.wilayah}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{r.locationKey}</TableCell>
+                  <TableCell>
+                    <span className={`text-xs font-medium ${r.status === "Selesai" ? "text-green-600" : "text-amber-600"}`}>
+                      {r.status}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

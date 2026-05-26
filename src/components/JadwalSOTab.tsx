@@ -77,7 +77,7 @@ function BoardView() {
         <Select value={loc} onValueChange={setLoc}>
           <SelectTrigger><SelectValue placeholder="Pilih lokasi" /></SelectTrigger>
           <SelectContent>
-            {LOCATIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            {state.stores.map((s) => <SelectItem key={s.id} value={s.name}>{s.code} — {s.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />

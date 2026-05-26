@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { LOCATIONS } from "@/data/locationData";
+import { KelolaTokoDialog } from "@/components/KelolaTokoDialog";
 import {
   parseMasterCsv,
   parseStockCsv,
@@ -399,11 +399,14 @@ export function StockOpnameTab() {
               <SelectValue placeholder="Pilih lokasi" />
             </SelectTrigger>
             <SelectContent>
-              {LOCATIONS.map((l) => (
-                <SelectItem key={l} value={l}>{l}</SelectItem>
+              {state.stores.map((s) => (
+                <SelectItem key={s.id} value={s.name}>{s.code} — {s.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <div className="mt-2">
+            <KelolaTokoDialog />
+          </div>
           {loc && <div className="mt-2 text-sm font-bold text-foreground">{loc}</div>}
         </div>
 

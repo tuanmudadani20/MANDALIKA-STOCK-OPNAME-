@@ -42,6 +42,12 @@ export interface HistoryEntry {
   status: "approved" | "closed";
   rows: { barcode: string; name: string; category: string; qty: number; sysStock: number; diff: number; price: number }[];
 }
+export interface Store {
+  id: string;
+  code: string;
+  name: string;
+  createdAt: string;
+}
 export interface AppState {
   activeLocation: string;
   master: Record<string, MasterProduct>;
@@ -52,10 +58,61 @@ export interface AppState {
   schedulePlanner: PlannerStore[];
   sessionStartedAt: Record<string, string>;
   history: HistoryEntry[];
+  stores: Store[];
 }
 
 const STORAGE_KEY = "mandalika-stock-opname-v2";
 const MASTER_OVERRIDES_KEY = "mandalika-master-overrides";
+const STORES_KEY = "mandalika_stores";
+
+function defaultStores(): Store[] {
+  const now = new Date().toISOString();
+  const fromPlanner = SCHEDULE_STORES.map((s) => ({
+    id: crypto.randomUUID(),
+    code: s.id,
+    name: s.locationKey,
+    createdAt: now,
+  }));
+  const extras: Store[] = [
+    { id: crypto.randomUUID(), code: "GDG-1", name: "GUDANG CIBUBUR", createdAt: now },
+    { id: crypto.randomUUID(), code: "GDG-2", name: "GUDANG PUSAT", createdAt: now },
+    { id: crypto.randomUUID(), code: "AMS", name: "PERFORMANCE PERFUME AMS", createdAt: now },
+    { id: crypto.randomUUID(), code: "GPS", name: "PERFORMANCE PERFUME GPS", createdAt: now },
+  ];
+  const seen = new Set(fromPlanner.map((s) => s.name));
+  return [...fromPlanner, ...extras.filter((e) => !seen.has(e.name))];
+}
+
+function loadStores(): Store[] {
+  if (typeof window === "undefined") return defaultStores();
+  try {
+    const raw = window.localStorage.getItem(STORES_KEY);
+    if (!raw) return defaultStores();
+    const arr = JSON.parse(raw) as Store[];
+    if (!Array.isArray(arr) || arr.length === 0) return defaultStores();
+    return arr;
+  } catch {
+    return defaultStores();
+  }
+}
+
+function saveStores(stores: Store[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORES_KEY, JSON.stringify(stores));
+  } catch {
+    toast.error("Penyimpanan penuh.");
+  }
+}
+
+export function nextStoreCode(stores: Store[]): string {
+  const nums = stores
+    .map((s) => s.code.match(/^T(\d+)$/i))
+    .filter(Boolean)
+    .map((m) => Number(m![1]));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `T${String(next).padStart(2, "0")}`;
+}
 
 function loadMaster(): Record<string, MasterProduct> {
   const defaults: Record<string, MasterProduct> = {};
@@ -127,6 +184,7 @@ function defaultState(): AppState {
     schedulePlanner: SCHEDULE_STORES.map((s) => ({ ...s })),
     sessionStartedAt: {},
     history: [],
+    stores: loadStores(),
   };
 }
 
@@ -461,6 +519,46 @@ export function useStore() {
         };
       });
       toast.success("Disimpan ke jadwal");
+    }, []),
+    addStore: useCallback((code: string, name: string): boolean => {
+      const cleanName = name.trim();
+      const cleanCode = code.trim();
+      if (!cleanName || !cleanCode) {
+        toast.warning("Nama & kode toko wajib diisi");
+        return false;
+      }
+      let ok = true;
+      setState((s) => {
+        if (s.stores.some((x) => x.code.toLowerCase() === cleanCode.toLowerCase())) {
+          ok = false;
+          return s;
+        }
+        const stores = [
+          ...s.stores,
+          { id: crypto.randomUUID(), code: cleanCode, name: cleanName, createdAt: new Date().toISOString() },
+        ];
+        saveStores(stores);
+        return { ...s, stores };
+      });
+      if (ok) toast.success(`Toko ${cleanName} ditambahkan`);
+      else toast.error(`Kode ${cleanCode} sudah ada`);
+      return ok;
+    }, []),
+    updateStore: useCallback((id: string, patch: Partial<Pick<Store, "name" | "code">>) => {
+      setState((s) => {
+        const stores = s.stores.map((x) => (x.id === id ? { ...x, ...patch } : x));
+        saveStores(stores);
+        return { ...s, stores };
+      });
+      toast.success("Toko diperbarui");
+    }, []),
+    deleteStore: useCallback((id: string) => {
+      setState((s) => {
+        const stores = s.stores.filter((x) => x.id !== id);
+        saveStores(stores);
+        return { ...s, stores };
+      });
+      toast.success("Toko dihapus");
     }, []),
   };
 

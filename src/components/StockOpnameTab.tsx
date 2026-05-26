@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { LOCATIONS } from "@/data/locationData";
+import { KelolaTokoDialog } from "@/components/KelolaTokoDialog";
 import {
   parseMasterCsv,
   parseStockCsv,

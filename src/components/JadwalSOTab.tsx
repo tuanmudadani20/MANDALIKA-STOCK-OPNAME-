@@ -283,29 +283,6 @@ function KalenderView() {
     return out.sort((a, b) => a.tgl.localeCompare(b.tgl));
   }, [monthSchedules, wilFilter, month, year]);
 
-  const printJadwal = () => {
-    const w = window.open("", "_blank", "width=1024,height=768");
-    if (!w) return;
-    const rows = flatSchedule
-      .map((r) => `<tr><td>${r.tgl}</td><td>${r.toko}</td><td>${r.wilayah}</td><td>${r.locationKey}</td><td>${r.status}</td></tr>`)
-      .join("");
-    const now = new Date().toLocaleString("id-ID");
-    const legend = allWil
-      .map((w2) => `<span><span class="dot" style="background:${WIL_COLORS[w2]}"></span>${w2}</span>`)
-      .join("");
-    w.document.write(`<!doctype html><html><head><title>Jadwal SO ${MONTHS_ID[month]} ${year}</title>
-      <style>${PRINT_BASE}</style></head><body>
-      <div class="brand"><div class="brand-name">MANDALIKA <span>Perfume</span></div>
-        <div class="brand-sub">Jadwal Stock Opname<br/>Dicetak: ${now}</div></div>
-      <h1>Jadwal SO — ${MONTHS_ID[month]} ${year}</h1>
-      <div class="muted">Filter wilayah: ${wilFilter === "__all__" ? "Semua" : wilFilter} • ${flatSchedule.length} jadwal</div>
-      <div class="legend">${legend}</div>
-      <table><thead><tr><th>Tanggal</th><th>Toko</th><th>Wilayah</th><th>Lokasi</th><th>Status</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="5" style="text-align:center;color:#666">Tidak ada jadwal</td></tr>`}</tbody></table>
-      <div class="footer"><span>Mandalika Perfume — Jadwal SO</span><span>${now}</span></div>
-      <script>setTimeout(()=>window.print(),300)</script></body></html>`);
-    w.document.close();
-  };
 
   const exportExcel = () => {
     const ws = XLSX.utils.json_to_sheet(

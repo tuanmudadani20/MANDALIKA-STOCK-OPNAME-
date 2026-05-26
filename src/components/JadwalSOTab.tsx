@@ -209,6 +209,7 @@ function KalenderView() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [wilFilter, setWilFilter] = useState<string>("__all__");
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
